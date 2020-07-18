@@ -3,10 +3,15 @@
 from telethon import TelegramClient, events
 import logging
 import os 
+import sheets
+from re import sub
+from decimal import Decimal
+import re
+import crypto_prices
+
 
 logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s',
                     level=logging.INFO)
-
 
 
 phone = os.environ.get('PHONE')
@@ -17,7 +22,7 @@ client = TelegramClient('session_name', api_id, api_hash)
 to_channel = os.environ.get('TO_CHANNEL')
 from_channel = os.environ.get('FROM_CHANNEL')
 
-
+pattern = re.compile(r'[↗️]+') 
 
 
 @client.on(events.NewMessage(chats=from_channel, incoming=True))
@@ -28,23 +33,59 @@ async def forwarder(event):
     await client.send_message(entity=to_channel, message=event.message.message)
     print('Message sent')
 
+@client.on(events.NewMessage(chats=from_channel, pattern=pattern))
+async def forward_withdrawals(event):
+    print(event.message.message)
+    message = event.message.message
+    user_id = message.partition('User id:')[2].split('\n')[0].strip()
+    header = message.partition("\n")[0]
+
+    withdrawal_amount_with_currency =  message.lower().partition('amount:')[2].split('\n')[0].strip()
+    withdrawal_amount = float(Decimal(sub(r'[^\d.]', '', withdrawal_amount_with_currency)))
+
+    currency = withdrawal_amount_with_currency.split(" ")[1].strip().upper()
+    exchange_rate = crypto_prices.get_price_in_eur(currency)
+
+    withdrawal_amount_eur = exchange_rate*withdrawal_amount
+
+    user_email = message.partition('Email:')[2].split('\n')[0].strip()
+    print("====================\n")
+    print(f'User ID is - {user_id}')
+    print(f'Email is - {user_email}')
+    print(f'withdrawal amount - {withdrawal_amount}')
+
+    in_list = sheets.in_player_list(user_id)
+    withdrawal_threshold = sheets.get_withdrawal_threashold()
+    
+    print(f'User in user list - {in_list}')
+    print(f'withdrawal threshold - {withdrawal_threshold}')
+    print("====================\n")
+
+    if in_list or (withdrawal_amount_eur > withdrawal_threshold) or (exchange_rate == -1):
+        print('Message sent')
+        message = header + "\n"
+        message += f"====================\n"
+        message += f"**User ID:** {user_id}\n"
+        message += f"**Email:** {user_email}\n"
+        message += f"**Amount:** {withdrawal_amount:.2f} {currency} "
+        if (exchange_rate > 0) and (exchange_rate != 1):
+            message += f"**({withdrawal_amount_eur:.2f} EUR)**\n"
+        elif exchange_rate == -1:
+            message += f"**(---)**\n"
+        else:
+            message += "\n"
+            
+        message += f"====================\n"
+        if in_list:
+            message += "PLAYER IN LIST\n"
+        if (withdrawal_amount_eur > withdrawal_threshold):
+            message += f"WITHDRAWAL > {withdrawal_threshold}\n"
+
+        await client.send_message(entity=to_channel, message=message, parse_mode='md')
+        
+
 print('Listening for messages...')
 
 client.start(phone)
 
 client.run_until_disconnected()
-
-# async def main():
-#         # Getting information about yourself
-#     me = await client.get_me()
-
-#     # "me" is an User object. You can pretty-print
-#     # any Telegram object with the "stringify" method:
-#     print(me.stringify())
-#         # You can print all the dialogs/conversations that you are part of:
-#     async for dialog in client.iter_dialogs():
-#         print(dialog.name, 'has ID', dialog.id)
-
-
-# with client:
-#     client.loop.run_until_complete(main())    
