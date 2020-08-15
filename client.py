@@ -8,6 +8,9 @@ from re import sub
 from decimal import Decimal
 import re
 import crypto_prices
+import sys
+from datetime import datetime
+
 
 
 logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s',
@@ -17,21 +20,27 @@ logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s'
 phone = os.environ.get('PHONE')
 api_id = os.environ.get('APPID')
 api_hash = os.environ.get('APIHASH')
-client = TelegramClient('session_name', api_id, api_hash)
+session_name = os.environ.get("SESSION_NAME")
+
+client = TelegramClient(session_name, api_id, api_hash)
 
 to_channel = os.environ.get('TO_CHANNEL')
 from_channel = os.environ.get('FROM_CHANNEL')
+withdrawals_channel = os.environ.get("WITHDRAWALS_CHANNEL")
 
 pattern = re.compile(r'[↗️]+') 
+pattern_deposit = re.compile(r'[↘️]+') 
 
 
-@client.on(events.NewMessage(chats=from_channel, incoming=True))
-async def forwarder(event):
+@client.on(events.NewMessage(chats=from_channel, pattern=pattern_deposit))
+async def forward_deposit(event):
     print(event.message.message)
-    to_channel = os.environ.get('TO_CHANNEL')
-    
-    await client.send_message(entity=to_channel, message=event.message.message)
-    print('Message sent')
+    # to_channel = os.environ.get('TO_CHANNEL')
+    date_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    message = event.message.message
+    sheets.insert_to_gsheet([date_time, message]) 
+    await client.send_message(entity=from_channel, message="Added to gsheet")
+    print('Message inserted')
 
 @client.on(events.NewMessage(chats=from_channel, pattern=pattern))
 async def forward_withdrawals(event):
@@ -40,13 +49,20 @@ async def forward_withdrawals(event):
     user_id = message.partition('User id:')[2].split('\n')[0].strip()
     header = message.partition("\n")[0]
 
-    withdrawal_amount_with_currency =  message.lower().partition('amount:')[2].split('\n')[0].strip()
-    withdrawal_amount = float(Decimal(sub(r'[^\d.]', '', withdrawal_amount_with_currency)))
-
-    currency = withdrawal_amount_with_currency.split(" ")[1].strip().upper()
-    exchange_rate = crypto_prices.get_price_in_eur(currency)
-
-    withdrawal_amount_eur = exchange_rate*withdrawal_amount
+    try:
+        withdrawal_amount_with_currency =  message.lower().partition('amount:')[2].split('\n')[0].strip()
+        withdrawal_amount = float(Decimal(sub(r'[^\d.]', '', withdrawal_amount_with_currency)))
+        currency = withdrawal_amount_with_currency.split(" ")[1].strip().upper()
+        exchange_rate = crypto_prices.get_price_in_eur(currency)
+        withdrawal_amount_eur = exchange_rate*withdrawal_amount
+    except:
+        error = sys.exc_info()[0]
+        error_message = "**ERROR WHILE PARSING:**\n"
+        error_message += str(error) 
+        error_message += "\n====================\n"
+        error_message += message
+        await client.send_message(entity=withdrawals_channel, message=error_message, parse_mode='md')
+        return
 
     user_email = message.partition('Email:')[2].split('\n')[0].strip()
     print("====================\n")
@@ -81,7 +97,7 @@ async def forward_withdrawals(event):
         if (withdrawal_amount_eur > withdrawal_threshold):
             message += f"WITHDRAWAL > {withdrawal_threshold}\n"
 
-        await client.send_message(entity=to_channel, message=message, parse_mode='md')
+        await client.send_message(entity=withdrawals_channel, message=message, parse_mode='md')
         
 
 print('Listening for messages...')
