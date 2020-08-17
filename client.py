@@ -30,16 +30,22 @@ withdrawals_channel = os.environ.get("WITHDRAWALS_CHANNEL")
 
 pattern = re.compile(r'[↗️]+') 
 pattern_deposit = re.compile(r'[↘️]+') 
+withdrawal_success_string = "WITHDRAWAL SUCCESS"
+deposits_worksheet = 'raw data'
+withdrawal_worksheet = 'withdrawals raw'
 
 
 @client.on(events.NewMessage(chats=from_channel, pattern=pattern_deposit))
 async def forward_deposit(event):
     print(event.message.message)
     # to_channel = os.environ.get('TO_CHANNEL')
-    date_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    # %B %d, %Y at %I:%M%p
+    date_time = datetime.now().strftime("%B %d, %Y at %I:%M%p")
     message = event.message.message
-    sheets.insert_to_gsheet([date_time, message]) 
-    await client.send_message(entity=from_channel, message="Added to gsheet")
+
+
+    result = sheets.insert_to_gsheet([date_time, message], deposits_worksheet) 
+    await client.send_message(entity=from_channel, message=result)
     print('Message inserted')
 
 @client.on(events.NewMessage(chats=from_channel, pattern=pattern))
@@ -76,6 +82,14 @@ async def forward_withdrawals(event):
     print(f'User in user list - {in_list}')
     print(f'withdrawal threshold - {withdrawal_threshold}')
     print("====================\n")
+
+    # Check if it is WITHDRAWAL SUCCESS
+    if withdrawal_success_string in message:
+        print("WITHDRAWAL SUCCESS")
+        date_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+        message_to_insert = str(user_id) + "|" + str(withdrawal_amount_eur)
+        result = sheets.insert_to_gsheet([date_time, message_to_insert], withdrawal_worksheet) 
+
 
     if in_list or (withdrawal_amount_eur > withdrawal_threshold) or (exchange_rate == -1):
         print('Message sent')

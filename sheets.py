@@ -2,6 +2,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os 
 from datetime import datetime
+import sys
 
 
 
@@ -26,10 +27,14 @@ def get_withdrawal_threashold():
     withdrawal_threashold = client.open(sheet_name).worksheet('settings').cell(2, 1).value
     return int(withdrawal_threashold)
 
-def insert_to_gsheet(data):
-    client = gspread.authorize(creds)
-    client.open(sheet_name).worksheet('raw data').append_row(data)
-
+def insert_to_gsheet(data, worksheet):
+    try:
+        client = gspread.authorize(creds)
+        client.open(sheet_name).worksheet(worksheet).append_row(data)
+        return "Added to gsheet"
+    except:
+        error = sys.exc_info()[0]
+        return str(error)
 
 
     
