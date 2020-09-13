@@ -30,11 +30,41 @@ def get_withdrawal_threashold():
 def insert_to_gsheet(data, worksheet):
     try:
         client = gspread.authorize(creds)
-        client.open(sheet_name).worksheet(worksheet).append_row(data)
-        return "Added to gsheet"
+        client.open(sheet_name).worksheet(worksheet).append_row(data,value_input_option='USER_ENTERED')
+        return "Added to gsheet\n"
     except:
         error = sys.exc_info()[0]
         return str(error)
 
 
+def find_player(user_id, worksheet='players'):
+    client = gspread.authorize(creds)
+    cells = client.open(sheet_name).worksheet(worksheet).findall(user_id)
+    return cells
+
+def update_player_bonus_date(user_id, date_time,  worksheet='players'):
+    try:
+        client = gspread.authorize(creds)
+        wsheet = client.open(sheet_name).worksheet(worksheet)
+        cells = find_player(user_id)
+
+        for cell in cells:
+            row_number = cell.row
+            col_number = cell.col + 1
+
+            wsheet.update_cell(row_number,col_number , date_time)
+
+            # retrieve value from comment field, append 'Auto updated' string and update comment
+            comment = wsheet.cell(row_number, col_number + 1).value
+            if not comment.strip():
+                comment = "Auto updated"
+            else: 
+                comment +="\nAuto updated"
+            
+            wsheet.update_cell(row_number,col_number + 1 , comment)
+        
+        return f"{len(cells)} bonus date updated\n"
     
+    except:
+        error = sys.exc_info()[0]
+        return str(error)

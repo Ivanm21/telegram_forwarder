@@ -30,16 +30,21 @@ withdrawals_channel = os.environ.get("WITHDRAWALS_CHANNEL")
 
 pattern = re.compile(r'[↗️]+') 
 pattern_deposit = re.compile(r'[↘️]+') 
+pattern_cashback = re.compile(r'[🏦]+')
+
+cashback_string = "CASHBACK"
 withdrawal_success_string = "WITHDRAWAL SUCCESS"
+
+
 deposits_worksheet = 'raw data'
 withdrawal_worksheet = 'withdrawals raw'
+cashback_worksheet = 'cashback'
 
 
 @client.on(events.NewMessage(chats=from_channel, pattern=pattern_deposit))
 async def forward_deposit(event):
     print(event.message.message)
-    # to_channel = os.environ.get('TO_CHANNEL')
-    # %B %d, %Y at %I:%M%p
+
     date_time = datetime.now().strftime("%B %d, %Y at %I:%M%p")
     message = event.message.message
 
@@ -47,6 +52,37 @@ async def forward_deposit(event):
     result = sheets.insert_to_gsheet([date_time, message], deposits_worksheet) 
     await client.send_message(entity=from_channel, message=result)
     print('Message inserted')
+
+
+@client.on(events.NewMessage(chats=from_channel, pattern=pattern_cashback))
+async def forward_cashback(event):
+    print(event.message.message)
+    message = event.message.message
+
+    if cashback_string in message:
+        date_time = datetime.now().strftime("%B %d, %Y at %I:%M%p")
+        user_id_full = message.partition('User id:')[2].split('\n')[0].strip()
+        user_id = int(Decimal(sub(r'[^\d.]', '', user_id_full)))
+        
+        amount_with_currency =  message.lower().partition('amount:')[2].split('\n')[0].strip()
+        amount = float(Decimal(sub(r'[^\d.]', '', amount_with_currency)))
+
+        currency = amount_with_currency.split(" ")[1].strip().upper()
+        if currency != 'EUR':
+            exchange_rate = crypto_prices.get_price_in_eur(currency)
+            amount = exchange_rate*amount
+
+        # Insert cashback
+        result = sheets.insert_to_gsheet([date_time, user_id, amount], cashback_worksheet)
+
+        # Update bonus date 
+        date_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+        result += sheets.update_player_bonus_date(user_id_full,date_time)
+
+        await client.send_message(entity=from_channel, message=result)
+        print('Cashback inserted')
+
+
 
 @client.on(events.NewMessage(chats=from_channel, pattern=pattern))
 async def forward_withdrawals(event):
@@ -59,8 +95,13 @@ async def forward_withdrawals(event):
         withdrawal_amount_with_currency =  message.lower().partition('amount:')[2].split('\n')[0].strip()
         withdrawal_amount = float(Decimal(sub(r'[^\d.]', '', withdrawal_amount_with_currency)))
         currency = withdrawal_amount_with_currency.split(" ")[1].strip().upper()
-        exchange_rate = crypto_prices.get_price_in_eur(currency)
-        withdrawal_amount_eur = exchange_rate*withdrawal_amount
+
+        if currency != 'EUR':
+            exchange_rate = crypto_prices.get_price_in_eur(currency)
+            withdrawal_amount_eur = exchange_rate*withdrawal_amount
+        else:
+            withdrawal_amount_eur = withdrawal_amount
+
     except:
         error = sys.exc_info()[0]
         error_message = "**ERROR WHILE PARSING:**\n"
@@ -88,7 +129,7 @@ async def forward_withdrawals(event):
         print("WITHDRAWAL SUCCESS")
         date_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
         result = sheets.insert_to_gsheet([date_time, user_id, withdrawal_amount_eur], withdrawal_worksheet) 
-
+        print(result)
 
     if in_list or (withdrawal_amount_eur > withdrawal_threshold) or (exchange_rate == -1):
         print('Message sent')
