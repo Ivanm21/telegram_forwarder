@@ -15,7 +15,11 @@ creds = ServiceAccountCredentials.from_json_keyfile_name(cred_file_name, scope)
 
 def in_player_list(player_id):
     client = gspread.authorize(creds)
-    players = client.open(sheet_name).worksheet('players').col_values(1)
+    vip = client.open(sheet_name).worksheet('players').col_values(1)
+    super_vip = client.open(sheet_name).worksheet('players').col_values(9)
+
+    players = vip
+    players.extend(super_vip)
 
     if player_id in players:
         return True

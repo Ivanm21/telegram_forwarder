@@ -130,8 +130,9 @@ async def forward_withdrawals(event):
         date_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
         result = sheets.insert_to_gsheet([date_time, user_id, withdrawal_amount_eur], withdrawal_worksheet) 
         print(result)
+        return
 
-    if in_list or (withdrawal_amount_eur > withdrawal_threshold) or (exchange_rate == -1):
+    if in_list or (withdrawal_amount_eur > withdrawal_threshold):
         print('Message sent')
         message = header + "\n"
         message += f"====================\n"
