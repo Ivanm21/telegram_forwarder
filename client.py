@@ -93,9 +93,11 @@ async def forward_withdrawals(event):
 
     try:
         withdrawal_amount_with_currency =  message.lower().partition('amount:')[2].split('\n')[0].strip()
-        withdrawal_amount = float(Decimal(sub(r'[^\d.]', '', withdrawal_amount_with_currency)))
+       
         currency = withdrawal_amount_with_currency.split(" ")[1].strip().upper()
-        
+        amount  = withdrawal_amount_with_currency.split(" ")[0].strip().upper()
+        withdrawal_amount = float(Decimal(sub(r'[^\d.]', '', amount)))
+
         exchange_rate = 1
 
         if currency != 'EUR':
