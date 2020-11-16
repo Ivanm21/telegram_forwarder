@@ -16,6 +16,9 @@ from datetime import datetime
 logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s',
                     level=logging.INFO)
 
+sheet_name = sys.argv[1]
+from_channel = sys.argv[2]
+
 
 phone = os.environ.get('PHONE')
 api_id = os.environ.get('APPID')
@@ -25,7 +28,6 @@ session_name = os.environ.get("SESSION_NAME")
 client = TelegramClient(session_name, api_id, api_hash)
 
 to_channel = os.environ.get('TO_CHANNEL')
-from_channel = os.environ.get('FROM_CHANNEL')
 withdrawals_channel = os.environ.get("WITHDRAWALS_CHANNEL")
 
 pattern = re.compile(r'[↗️]+') 
@@ -49,7 +51,7 @@ async def forward_deposit(event):
     message = event.message.message
 
 
-    result = sheets.insert_to_gsheet([date_time, message], deposits_worksheet) 
+    result = sheets.insert_to_gsheet([date_time, message], deposits_worksheet,sheet_name=sheet_name) 
     await client.send_message(entity=from_channel, message=result)
     print('Message inserted')
 
@@ -73,11 +75,11 @@ async def forward_cashback(event):
             amount = exchange_rate*amount
 
         # Insert cashback
-        result = sheets.insert_to_gsheet([date_time, user_id, amount], cashback_worksheet)
+        result = sheets.insert_to_gsheet([date_time, user_id, amount], cashback_worksheet,sheet_name=sheet_name)
 
         # Update bonus date 
         date_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-        result += sheets.update_player_bonus_date(user_id_full,date_time)
+        result += sheets.update_player_bonus_date(user_id_full,date_time,sheet_name=sheet_name)
 
         await client.send_message(entity=from_channel, message=result)
         print('Cashback inserted')
@@ -93,18 +95,23 @@ async def forward_withdrawals(event):
 
     try:
         withdrawal_amount_with_currency =  message.lower().partition('amount:')[2].split('\n')[0].strip()
-       
-        currency = withdrawal_amount_with_currency.split(" ")[1].strip().upper()
-        amount  = withdrawal_amount_with_currency.split(" ")[0].strip().upper()
-        withdrawal_amount = float(Decimal(sub(r'[^\d.]', '', amount)))
 
+        withdrawal_amount_with_currency = withdrawal_amount_with_currency.split(" ")
         exchange_rate = 1
 
-        if currency != 'EUR':
-            exchange_rate = crypto_prices.get_price_in_eur(currency)
-            withdrawal_amount_eur = exchange_rate*withdrawal_amount
+
+
+        if len(withdrawal_amount_with_currency) > 2:
+            withdrawal_amount = float(Decimal(sub(r'[^\d.]', '', withdrawal_amount_with_currency[2])))
+            currency = 'EUR'
         else:
-            withdrawal_amount_eur = withdrawal_amount
+            currency = withdrawal_amount_with_currency[1].strip().upper()
+            amount  = withdrawal_amount_with_currency[0].strip().upper()
+            withdrawal_amount = float(Decimal(sub(r'[^\d.]', '', amount)))
+            exchange_rate = crypto_prices.get_price_in_eur(currency)
+
+        withdrawal_amount_eur = exchange_rate*withdrawal_amount
+
 
     except:
         error = sys.exc_info()[0]
@@ -121,8 +128,8 @@ async def forward_withdrawals(event):
     print(f'Email is - {user_email}')
     print(f'withdrawal amount - {withdrawal_amount}')
 
-    in_list = sheets.in_player_list(user_id)
-    withdrawal_threshold = sheets.get_withdrawal_threashold()
+    in_list = sheets.in_player_list(user_id,sheet_name=sheet_name)
+    withdrawal_threshold = sheets.get_withdrawal_threashold(sheet_name=sheet_name)
     
     print(f'User in user list - {in_list}')
     print(f'withdrawal threshold - {withdrawal_threshold}')
@@ -132,7 +139,7 @@ async def forward_withdrawals(event):
     if withdrawal_success_string in message:
         print("WITHDRAWAL SUCCESS")
         date_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-        result = sheets.insert_to_gsheet([date_time, user_id, withdrawal_amount_eur], withdrawal_worksheet) 
+        result = sheets.insert_to_gsheet([date_time, user_id, withdrawal_amount_eur], withdrawal_worksheet,sheet_name=sheet_name) 
         print(result)
         return
 

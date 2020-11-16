@@ -13,7 +13,7 @@ sheet_name = os.environ.get("SHEET_NAME")
 
 creds = ServiceAccountCredentials.from_json_keyfile_name(cred_file_name, scope)
 
-def in_player_list(player_id):
+def in_player_list(player_id,sheet_name):
     client = gspread.authorize(creds)
     vip = client.open(sheet_name).worksheet('players').col_values(1)
     super_vip = client.open(sheet_name).worksheet('players').col_values(9)
@@ -26,12 +26,12 @@ def in_player_list(player_id):
     else: 
         return False 
     
-def get_withdrawal_threashold():
+def get_withdrawal_threashold(sheet_name):
     client = gspread.authorize(creds)
     withdrawal_threashold = client.open(sheet_name).worksheet('settings').cell(2, 1).value
     return int(withdrawal_threashold)
 
-def insert_to_gsheet(data, worksheet):
+def insert_to_gsheet(data, worksheet, sheet_name):
     try:
         client = gspread.authorize(creds)
         client.open(sheet_name).worksheet(worksheet).append_row(data,value_input_option='USER_ENTERED')
@@ -41,12 +41,12 @@ def insert_to_gsheet(data, worksheet):
         return str(error)
 
 
-def find_player(user_id, worksheet='players'):
+def find_player(user_id,sheet_name, worksheet='players'):
     client = gspread.authorize(creds)
     cells = client.open(sheet_name).worksheet(worksheet).findall(user_id)
     return cells
 
-def update_player_bonus_date(user_id, date_time,  worksheet='players'):
+def update_player_bonus_date(user_id, date_time,sheet_name,  worksheet='players'):
     try:
         client = gspread.authorize(creds)
         wsheet = client.open(sheet_name).worksheet(worksheet)
