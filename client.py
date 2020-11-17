@@ -18,12 +18,12 @@ logging.basicConfig(format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s'
 
 sheet_name = sys.argv[1]
 from_channel = sys.argv[2]
+session_name = sys.argv[3]
 
 
 phone = os.environ.get('PHONE')
 api_id = os.environ.get('APPID')
 api_hash = os.environ.get('APIHASH')
-session_name = os.environ.get("SESSION_NAME")
 
 client = TelegramClient(session_name, api_id, api_hash)
 
