@@ -9,8 +9,6 @@ import sys
 scope = ['https://www.googleapis.com/auth/spreadsheets', "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
 
 cred_file_name = os.environ.get("CRED_FILE")
-sheet_name = os.environ.get("SHEET_NAME")
-
 creds = ServiceAccountCredentials.from_json_keyfile_name(cred_file_name, scope)
 
 def in_player_list(player_id,sheet_name):
