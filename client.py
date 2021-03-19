@@ -10,6 +10,8 @@ import re
 import crypto_prices
 import sys
 from datetime import datetime
+from telethon.sync import TelegramClient
+from telethon.sessions import StringSession
 
 
 
@@ -24,8 +26,11 @@ session_name = sys.argv[3]
 phone = os.environ.get('PHONE')
 api_id = os.environ.get('APPID')
 api_hash = os.environ.get('APIHASH')
+session = os.environ.get(session_name)
 
-client = TelegramClient(session_name, api_id, api_hash)
+
+client = TelegramClient(StringSession(session), api_id, api_hash)
+
 
 to_channel = os.environ.get('TO_CHANNEL')
 withdrawals_channel = os.environ.get("WITHDRAWALS_CHANNEL")
@@ -41,6 +46,12 @@ withdrawal_success_string = "WITHDRAWAL SUCCESS"
 deposits_worksheet = 'raw data'
 withdrawal_worksheet = 'withdrawals raw'
 cashback_worksheet = 'cashback'
+
+
+# with TelegramClient(StringSession(session), api_id, api_hash) as client:
+
+#    
+
 
 
 @client.on(events.NewMessage(chats=from_channel, pattern=pattern_deposit))
@@ -128,46 +139,45 @@ async def forward_withdrawals(event):
     print(f'Email is - {user_email}')
     print(f'withdrawal amount - {withdrawal_amount}')
 
-    in_list = sheets.in_player_list(user_id,sheet_name=sheet_name)
-    withdrawal_threshold = sheets.get_withdrawal_threashold(sheet_name=sheet_name)
+    # in_list = sheets.in_player_list(user_id,sheet_name=sheet_name)
+    # withdrawal_threshold = sheets.get_withdrawal_threashold(sheet_name=sheet_name)
     
-    print(f'User in user list - {in_list}')
-    print(f'withdrawal threshold - {withdrawal_threshold}')
-    print("====================\n")
+    # print(f'User in user list - {in_list}')
+    # print(f'withdrawal threshold - {withdrawal_threshold}')
+    # print("====================\n")
 
     # Check if it is WITHDRAWAL SUCCESS
     if withdrawal_success_string in message:
         print("WITHDRAWAL SUCCESS")
         date_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+        print("Starting to write WITHDRAWAL SUCCESS")
         result = sheets.insert_to_gsheet([date_time, user_id, withdrawal_amount_eur], withdrawal_worksheet,sheet_name=sheet_name) 
         print(result)
         return
 
-    if in_list or (withdrawal_amount_eur > withdrawal_threshold):
-        print('Message sent')
-        message = header + "\n"
-        message += f"====================\n"
-        message += f"**User ID:** {user_id}\n"
-        message += f"**Email:** {user_email}\n"
-        message += f"**Amount:** {withdrawal_amount:.2f} {currency} "
-        if (exchange_rate > 0) and (exchange_rate != 1):
-            message += f"**({withdrawal_amount_eur:.2f} EUR)**\n"
-        elif exchange_rate == -1:
-            message += f"**(---)**\n"
-        else:
-            message += "\n"
+    # if in_list or (withdrawal_amount_eur > withdrawal_threshold):
+    #     print('Message sent')
+    #     message = header + "\n"
+    #     message += f"====================\n"
+    #     message += f"**User ID:** {user_id}\n"
+    #     message += f"**Email:** {user_email}\n"
+    #     message += f"**Amount:** {withdrawal_amount:.2f} {currency} "
+    #     if (exchange_rate > 0) and (exchange_rate != 1):
+    #         message += f"**({withdrawal_amount_eur:.2f} EUR)**\n"
+    #     elif exchange_rate == -1:
+    #         message += f"**(---)**\n"
+    #     else:
+    #         message += "\n"
             
-        message += f"====================\n"
-        if in_list:
-            message += "PLAYER IN LIST\n"
-        if (withdrawal_amount_eur > withdrawal_threshold):
-            message += f"WITHDRAWAL > {withdrawal_threshold}\n"
+    #     message += f"====================\n"
+    #     if in_list:
+    #         message += "PLAYER IN LIST\n"
+    #     if (withdrawal_amount_eur > withdrawal_threshold):
+    #         message += f"WITHDRAWAL > {withdrawal_threshold}\n"
 
-        await client.send_message(entity=withdrawals_channel, message=message, parse_mode='md')
+    #     await client.send_message(entity=withdrawals_channel, message=message, parse_mode='md')
         
 
-print('Listening for messages...')
-
 client.start(phone)
-
 client.run_until_disconnected()
+print('Listening for messages...')
